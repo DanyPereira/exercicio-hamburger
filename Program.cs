@@ -22,7 +22,7 @@ namespace hamburger_exercicio
             carregarIngredientesDoPostgreSql();
 
            // carregarHamburgeresDoDiscoEmCsv();
-           carregarHamburgeresDoPostgreSql();
+            carregarHamburgeresDoPostgreSql();
 
             // carregarPedidosDoDiscoEmCsv();
 
@@ -191,7 +191,9 @@ namespace hamburger_exercicio
                             Telefone = dr["telefone"].ToString()
                         });
                     }
+                    
                 }
+                conn.Close();
             }
         }
         
@@ -199,7 +201,6 @@ namespace hamburger_exercicio
         {
             string connString ="Server=localhost;Username=dany;Database=pedido_hamburger;Port=5432;Password=dany;SSLMode=Prefer";
             using (var conn = new NpgsqlConnection(connString))
-           
             {
                 conn.Open();
                 using (var command = new NpgsqlCommand("select * from hamburgeres", conn))
@@ -231,8 +232,11 @@ namespace hamburger_exercicio
                                 Nome = dr["nome"].ToString()
                             });
                         }
-                    }
+                        dr.Close();
+                    } 
+                    
                 }
+                 conn.Close();
             }
         }
         
@@ -253,6 +257,7 @@ namespace hamburger_exercicio
         
                         });
                     }
+                    conn.Close();
                 }
             }
         }
@@ -443,8 +448,10 @@ namespace hamburger_exercicio
 
             hamburgeres.Add(hamburger);
 
-            salvarHamburgeresCsv(hamburgeres);
+            //salvarHamburgeresCsv(hamburgeres);
             // salvarHamburgeresJson(hamburgeres);
+            salvarHamburgersPostgreSql(hamburgeres);
+            
 
             Console.WriteLine("Hamburger cadastrado com sucesso");
             Thread.Sleep(1000);
@@ -584,48 +591,39 @@ namespace hamburger_exercicio
             File.WriteAllText("hamburgeres.json", JsonSerializer.Serialize(hamburgeres));
         }
 
-        private static void salvarHamburgersPostgreSql(List<Hamburger> hamburgers)
+        private static void salvarHamburgersPostgreSql(List<Hamburger> hamburgeres)
         {
             string connString ="Server=localhost;Username=dany;Database=pedido_hamburger;Port=5432;Password=dany;SSLMode=Prefer";
             using (var conn = new NpgsqlConnection(connString))
             {
                 conn.Open();
-                foreach(var hamburger in hamburgers)
+                foreach(var hamburger in hamburgeres)
                 {
                     var command = new NpgsqlCommand("select count(1) from hamburgeres where codigo =" + hamburger.Codigo, conn);
                     var qtdHam = Convert.ToInt16(command.ExecuteScalar());
                     if(qtdHam > 0) continue;
 
-                    var commandIn = new NpgsqlCommand("insert into hamburgueres (codigo, nome, valor, ingredientes) values (@codigo, @nome, @endereco, @telefone)" , conn);
+                    var commandIn = new NpgsqlCommand("insert into hamburgeres (codigo, nome, valor) values (@codigo, @nome, @valor)" , conn);
                     commandIn.Parameters.AddWithValue("@codigo",hamburger.Codigo);
                     commandIn.Parameters.AddWithValue("@nome",hamburger.Nome);
                     commandIn.Parameters.AddWithValue("@valor",hamburger.Valor);
 
-                    
                     commandIn.ExecuteScalar();
-                }
-            }
-        }
 
-        private static void salvarIngdientes_HamburgersPostgreSql(List<Ingrediente> ingredientes)
-        {
-            string connString ="Server=localhost;Username=dany;Database=pedido_hamburger;Port=5432;Password=dany;SSLMode=Prefer";
-            using (var conn = new NpgsqlConnection(connString))
-            {
-                conn.Open();
-                foreach(var ingre_hamb in ingredientes)
-                {
-                    var command = new NpgsqlCommand("select count(1) from hamburgeres_ingredientes where codigo =" + ingre_hamb.Codigo, conn);
-                    var qtdClie = Convert.ToInt16(command.ExecuteScalar());
-                    if(qtdClie > 0) continue;
+                    foreach(var ingre in hamburger.Ingredientes)
+                    {
 
-                    var commandIn = new NpgsqlCommand("insert into hamburgueres_ingredientes (codigo_hamburger, codigo_ingrediente) values (@codigo_hamburger, @codigo_ingrediente)" , conn);
-                    commandIn.Parameters.AddWithValue("@codigo_hamburger",codigo_ham);
-                    commandIn.Parameters.AddWithValue("@nome",hamburger.Nome);
-           
+                        command = new NpgsqlCommand($"select count(1) from hamburgeres_ingredientes where codigo_hamburger = {hamburger.Codigo} and codigo_ingrediente =  {ingre.Codigo}", conn);
+                        var qtdHam_Ingre= Convert.ToInt16(command.ExecuteScalar());
+                        if(qtdHam_Ingre > 0) continue;
 
-                    
-                    commandIn.ExecuteScalar();
+                        commandIn = new NpgsqlCommand("insert into hamburgeres_ingredientes (codigo_hamburger, codigo_ingrediente) values (@codigo_hamburger, @codigo_ingrediente)" , conn);
+                        commandIn.Parameters.AddWithValue("@codigo_hamburger",hamburger.Codigo);
+                        commandIn.Parameters.AddWithValue("@codigo_ingrediente",ingre.Codigo);
+                                   
+                        commandIn.ExecuteNonQuery();
+                    }
+
                 }
             }
         }
